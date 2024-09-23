@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package game;
+
+option go_package = "game/messages";
+option csharp_namespace = "GameMessages";
+
+message PlayerPosition {
+  int32 player_id = 1;
+  float x = 2;
+  float y = 3;
+  float z = 4;
+}
+
+message GameState {
+  repeated PlayerPosition players = 1;
+}
+
+service GameService {
+  rpc UpdatePosition (PlayerPosition) returns (GameState) {}
+}
+
+//rpc 통신코드
