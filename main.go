@@ -1,53 +1,88 @@
 package main
 
 import (
-	"context"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
-	"sync"
 
-	pb "golangtcp/messages"
+	pb "golangTCP/messages"
 
-	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
-type gameServer struct {
-	pb.UnimplementedGameServiceServer
-	mu      sync.Mutex
-	players map[int32]*pb.PlayerPosition
-}
-
-func (s *gameServer) UpdatePosition(ctx context.Context, pos *pb.PlayerPosition) (*pb.GameState, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.players[pos.PlayerId] = pos
-
-	gameState := &pb.GameState{
-		Players: make([]*pb.PlayerPosition, 0, len(s.players)),
-	}
-	for _, player := range s.players {
-		gameState.Players = append(gameState.Players, player)
-	}
-
-	log.Printf("Updated position for player %d: (%f, %f, %f)", pos.PlayerId, pos.X, pos.Y, pos.Z)
-	return gameState, nil
-}
-
 func main() {
-	lis, err := net.Listen("tcp", ":50051")
+	listener, err := net.Listen("tcp", ":8888")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+	defer listener.Close()
+	fmt.Println("Server is listening on :8888")
 
-	s := grpc.NewServer()
-	pb.RegisterGameServiceServer(s, &gameServer{
-		players: make(map[int32]*pb.PlayerPosition),
-	})
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("Failed to accept connection: %v", err)
+			continue
+		}
+		go handleConnection(conn)
+	}
+}
 
-	fmt.Println("Game server is running on :50051")
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	for {
+		// 메시지 길이를 먼저 읽습니다 (4바이트)
+		lengthBuf := make([]byte, 4)
+		_, err := conn.Read(lengthBuf)
+		if err != nil {
+			log.Printf("Failed to read message length: %v", err)
+			return
+		}
+		length := binary.LittleEndian.Uint32(lengthBuf)
+
+		// 메시지 본문을 읽습니다
+		messageBuf := make([]byte, length)
+		_, err = conn.Read(messageBuf)
+		if err != nil {
+			log.Printf("Failed to read message body: %v", err)
+			return
+		}
+
+		// Protocol Buffers 메시지를 파싱합니다
+		message := &pb.GameMessage{}
+		err = proto.Unmarshal(messageBuf, message)
+		if err != nil {
+			log.Printf("Failed to unmarshal message: %v", err)
+			continue
+		}
+
+		// 메시지 처리
+		processMessage(message)
+
+		// 응답 메시지 생성 및 전송 (예: 에코)
+		response, err := proto.Marshal(message)
+		if err != nil {
+			log.Printf("Failed to marshal response: %v", err)
+			continue
+		}
+
+		// 메시지 길이를 먼저 보냅니다
+		binary.BigEndian.PutUint32(lengthBuf, uint32(len(response)))
+		conn.Write(lengthBuf)
+
+		// 메시지 본문을 보냅니다
+		conn.Write(response)
+	}
+}
+
+func processMessage(message *pb.GameMessage) {
+	switch msg := message.Message.(type) {
+	case *pb.GameMessage_PlayerPosition:
+		pos := msg.PlayerPosition
+		fmt.Println("Position : ", pos.X, pos.Y, pos.Z)
+	case *pb.GameMessage_Chat:
+	default:
+		panic(fmt.Sprintf("unexpected messages.isGameMessage_Message: %#v", msg))
 	}
 }

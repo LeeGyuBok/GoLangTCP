@@ -6,8 +6,8 @@ echo Current directory: %CD%
 
 REM Run protoc command
 echo Generating Go code from Protobuf...
-protoc --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc="%GRPC%" *.proto
-protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative *.proto
+protoc --csharp_out="C:\Users\USER-PC\Test\Assets\ServerScripts" *.proto
+protoc --go_out=../../ *.proto
 
 REM Check if the command was successful
 if %ERRORLEVEL% neq 0 (
