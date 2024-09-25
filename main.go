@@ -9,9 +9,16 @@ import (
 	pb "golangTCP/messages"
 
 	"google.golang.org/protobuf/proto"
+
+	mg "golangTCP/packages/manager"
 )
 
+var playerManager *mg.PlayerManager
+
 func main() {
+
+	playerManager = mg.NewPlayerManager()
+
 	listener, err := net.Listen("tcp", ":8888")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
@@ -82,6 +89,10 @@ func processMessage(message *pb.GameMessage) {
 		pos := msg.PlayerPosition
 		fmt.Println("Position : ", pos.X, pos.Y, pos.Z)
 	case *pb.GameMessage_Chat:
+	case *pb.GameMessage_Login:
+		playerId := msg.Login.PlayerId
+		fmt.Println(playerId)
+		playerManager.AddPlayer(playerId, 0)
 	default:
 		panic(fmt.Sprintf("unexpected messages.isGameMessage_Message: %#v", msg))
 	}

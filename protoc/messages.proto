@@ -16,9 +16,14 @@ message ChatMessage {
   string content = 2;
 }
 
+message LoginMessage {
+  string playerId = 1;    
+}
+
 message GameMessage {
   oneof message {
     PlayerPosition player_position = 1;
     ChatMessage chat = 2;
+    LoginMessage login = 3;
   }
-}
+} 
